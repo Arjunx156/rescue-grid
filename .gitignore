@@ -1,0 +1,33 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# javascript
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+test-results/
+playwright-report/
+blob-report/
+
+# raw downloads; scripts/build_geo.py turns them into data/geo
+*.osm.pbf
+
+# os and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# downloaded source rasters; scripts/build_terrain.py caches them here
+data/.cache/

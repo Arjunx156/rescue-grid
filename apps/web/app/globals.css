@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+/*
+  Rescue Grid tokens. Mission control is dark and dense; the field app and the
+  public pages are light for sunlight. Colour carries meaning (urgency, status),
+  never decoration. Every text pair below is WCAG AA or better.
+*/
+
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
+:root {
+  --font-indic: var(--font-ta), var(--font-hi), var(--font-ml), var(--font-te);
+  --bg: #ffffff;
+  --panel: #f3f4f6;
+  --panel-2: #e9ebef;
+  --raised: #ffffff;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --text: #111827;
+  --muted: #4b5563;
+  --faint: #646c79;
+  --accent: #2563eb;
+  --accent-text: #1d4ed8;
+  --accent-soft: rgb(37 99 235 / 0.08);
+  --focus: #3b82f6;
+  --go: #166534;
+  --go-ink: #ffffff;
+  --critical: #b91c1c;
+  --high: #c2410c;
+  --medium: #a16207;
+  --low: #15803d;
+  --closed: #6b7280;
+  --water: #0e7490;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  --shadow-float: 0 12px 32px -8px rgb(15 23 42 / 0.18), 0 1px 2px rgb(0 0 0 / 0.06);
+  color-scheme: light;
+}
+
+.theme-dark {
+  --bg: #0b0f14;
+  --panel: #121821;
+  --panel-2: #172030;
+  --raised: #151c27;
+  --line: #1f2937;
+  --line-strong: #2a3647;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --faint: #7c8494;
+  --accent: #2563eb;
+  --accent-text: #60a5fa;
+  --accent-soft: rgb(59 130 246 / 0.12);
+  --focus: #3b82f6;
+  --go: #22c55e;
+  --go-ink: #0b0f14;
+  --critical: #ef4444;
+  --high: #f97316;
+  --medium: #eab308;
+  --low: #22c55e;
+  --closed: #6b7280;
+  --water: #22d3ee;
+  /* no shadows in the dark: depth comes from shade and 1px lines */
+  --shadow: none;
+  --shadow-float: 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-focus: var(--focus);
+  --color-go: var(--go);
+  --color-go-ink: var(--go-ink);
+  --color-critical: var(--critical);
+  --color-high: var(--high);
+  --color-medium: var(--medium);
+  --color-low: var(--low);
+  --color-closed: var(--closed);
+  --color-water: var(--water);
+  --color-signal: #3b82f6;
+
+  --font-sans: var(--font-inter), var(--font-indic), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* language names in their own scripts: phones already carry these fonts, so skip the web ones */
+  --font-native: var(--font-inter), system-ui, sans-serif;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  --shadow-card: var(--shadow);
+  --shadow-float: var(--shadow-float);
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-ring: ring 1.8s var(--ease-out) infinite;
+  --animate-in: rise 180ms var(--ease-out);
+
+  @keyframes ring {
+    0% {
+      transform: scale(0.6);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ids, timestamps and coordinates line up in columns */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* in the base layer so a component's own focus utility can win */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+::selection {
+  background: rgb(59 130 246 / 0.35);
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* floating surfaces over the map are the only glass in the product */
+.glass {
+  background: color-mix(in oklab, var(--panel) 93%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* MapLibre: quiet controls that match the panels */
+.maplibregl-ctrl-group {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  border-radius: var(--radius-md) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--line) !important;
+}
+.theme-dark .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}
+.maplibregl-ctrl-attrib {
+  background: color-mix(in oklab, var(--panel) 80%, transparent) !important;
+  color: var(--muted) !important;
+  font-size: 10px !important;
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--muted) !important;
+}
+.maplibregl-canvas:focus-visible {
+  outline-offset: -2px;
+}
+
+.rg-popup .maplibregl-popup-content {
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  box-shadow: var(--shadow-float);
+  font-family: var(--font-sans);
+}
+.rg-popup .maplibregl-popup-tip {
+  display: none;
+}
+
+/* the landing's flood twin, when WebGL or its data is unavailable: the grid without the water */
+.twin-fallback {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse at 70% 45%, black 20%, transparent 75%);
+}

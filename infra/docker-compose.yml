@@ -1,0 +1,128 @@
+name: rescue-grid
+
+# Local dev runs only db and redis (`just up`) and the apps natively.
+# The full stack (`just stack`) runs everything behind Caddy on one origin.
+
+x-api-env: &api-env
+  env_file:
+    - path: ../.env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+asyncpg://rescuegrid:${POSTGRES_PASSWORD:-rescuegrid}@db:5432/rescuegrid
+    REDIS_URL: redis://redis:6379/0
+    DATA_DIR: /data
+    # the worker service runs the pipeline; the API only serves
+    WORKERS_INLINE: "false"
+
+services:
+  db:
+    build: ./db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rescuegrid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rescuegrid}
+      POSTGRES_DB: rescuegrid
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rescuegrid -d rescuegrid"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: [stack]
+    build: ../apps/api
+    restart: unless-stopped
+    <<: *api-env
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+    volumes:
+      - ../data:/data:ro
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    profiles: [stack]
+    build: ../apps/api
+    restart: unless-stopped
+    <<: *api-env
+    command: ["python", "-m", "app.workers"]
+    volumes:
+      - ../data:/data:ro
+    depends_on:
+      api: { condition: service_healthy }
+
+  web:
+    profiles: [stack]
+    build:
+      context: ../apps/web
+      args:
+        PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost}
+        CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+        NEXT_PUBLIC_MAP_STYLE_DARK: ${NEXT_PUBLIC_MAP_STYLE_DARK:-}
+        NEXT_PUBLIC_MAP_STYLE_LIGHT: ${NEXT_PUBLIC_MAP_STYLE_LIGHT:-}
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    depends_on:
+      api: { condition: service_healthy }
+
+  caddy:
+    profiles: [stack]
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [api, web]
+
+  # Flood-aware road routing. First boot downloads the OSM extract and builds
+  # tiles (about 20 minutes, 3 GB disk). Then set ROUTER=valhalla in .env.
+  valhalla:
+    profiles: [routing]
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    restart: unless-stopped
+    environment:
+      tile_urls: https://download.geofabrik.de/asia/india/southern-zone-latest.osm.pbf
+      use_tiles_ignore_pbf: "True"
+      build_elevation: "False"
+      build_admins: "False"
+      build_time_zones: "False"
+      server_threads: "2"
+    ports:
+      - "127.0.0.1:8002:8002"
+    volumes:
+      - valhalla:/custom_files
+
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:
+  valhalla:

@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - uses: extractions/setup-just@v3
+      - name: Postgres with PostGIS and pgvector, and Redis
+        run: docker compose -f infra/docker-compose.yml up -d --build --wait db redis
+      - run: uv sync --locked
+        working-directory: apps/api
+      - run: just migrate
+      - run: just check-api
+      - name: Extraction, geocoding and de-duplication evals
+        run: just eval
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - uses: extractions/setup-just@v3
+      - run: bun install --frozen-lockfile
+        working-directory: apps/web
+      - run: just check-web
+      - run: bun run build
+        working-directory: apps/web
+
+  e2e:
+    needs: [api, web]
+    runs-on: ubuntu-latest
+    env:
+      DEMO_MODE: "true"
+      OTP_DEV_ECHO: "true"
+      WORKERS_INLINE: "true"
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - uses: extractions/setup-just@v3
+      - run: docker compose -f infra/docker-compose.yml up -d --build --wait db redis
+      - run: uv sync --locked
+        working-directory: apps/api
+      - run: just migrate
+      - run: just seed
+      - name: API with inline workers
+        working-directory: apps/api
+        run: |
+          nohup uv run uvicorn app.main:app --port 8000 > ../../api.log 2>&1 &
+          timeout 60 sh -c 'until curl -sf localhost:8000/health; do sleep 1; done'
+      - name: Web app, production build
+        working-directory: apps/web
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+          nohup bun run start > ../../web.log 2>&1 &
+          timeout 60 sh -c 'until curl -sf localhost:3100/ > /dev/null; do sleep 1; done'
+      - run: bun x playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: bun x playwright test
+        working-directory: apps/web
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+            api.log
+            web.log
+          retention-days: 7

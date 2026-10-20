@@ -1,0 +1,79 @@
+[project]
+name = "rescue-grid-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.0",
+    "argon2-cffi>=25.1.0",
+    "asyncpg>=0.32.0",
+    "cryptography>=50.0.2",
+    "email-validator>=2.3.0",
+    "fastapi>=0.149.0",
+    "geoalchemy2>=0.20.0",
+    "google-genai>=2.31.0",
+    "httpx>=0.28.1",
+    "numba>=0.68.0",
+    "ollama>=0.6.3",
+    "orjson>=3.13.0",
+    "ortools>=9.15.6755",
+    "pgvector>=0.5.1",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.16.0",
+    "pyjwt>=2.15.1",
+    "python-multipart>=0.0.32",
+    "pywebpush>=2.5.0",
+    "rapidfuzz>=3.14.6",
+    "redis>=5",
+    "sentry-sdk[fastapi]>=2.72.0",
+    "shapely>=2.2.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "PTH", "ASYNC", "S", "BLE"]
+ignore = [
+    "RUF001", "RUF003",  # Indic scripts and typographic dots are intended
+    "S101",              # asserts mark invariants
+    "S311",              # random is for simulation, not secrets
+    "B008",              # FastAPI's File/Form defaults
+    "SIM105",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PTH"]
+"scripts/**" = ["S", "PTH123", "E501"]
+"app/actions/notify.py" = ["E501"]  # message copy reads better unbroken
+"evals/**" = ["S"]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+include = ["app", "tests", "evals", "scripts"]
+exclude = ["alembic/versions", ".venv"]
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning:pywebpush.*", "ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]

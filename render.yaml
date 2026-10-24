@@ -8,9 +8,8 @@ services:
     region: singapore
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
-    # free instances have no pre-deploy step; migrating and seeding are both idempotent.
-    # Render runs this through sh itself, so it takes no sh -c wrapper.
-    dockerCommand: alembic upgrade head && python -m app.seed && exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    # Render splits this into words without a shell, so the boot steps live in the script
+    dockerCommand: sh start-render.sh
     healthCheckPath: /health
     buildFilter:
       paths: [apps/api/**, data/**, render.yaml]

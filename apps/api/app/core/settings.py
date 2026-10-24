@@ -3,8 +3,9 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 API_ROOT = Path(__file__).resolve().parents[2]  # apps/api in a checkout, /app in the image
@@ -78,6 +79,16 @@ class Settings(BaseSettings):
     workers_inline: bool = False
     nowcast_threads: int = 4  # flood ensemble members simulated at once by the workers
     sentry_dsn: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def _asyncpg_url(cls, url: str) -> str:
+        """Hosted Postgres hands out libpq URLs; asyncpg needs its own scheme and spells sslmode as ssl."""
+        parts = urlsplit(url)
+        if parts.scheme in ("postgres", "postgresql"):
+            parts = parts._replace(scheme="postgresql+asyncpg")
+        query = [("ssl" if k == "sslmode" else k, v) for k, v in parse_qsl(parts.query) if k != "channel_binding"]
+        return urlunsplit(parts._replace(query=urlencode(query)))
 
     @model_validator(mode="after")
     def _refuse_dev_secrets_in_prod(self) -> Settings:

@@ -23,6 +23,7 @@ from app.core.security import (
     Claims,
     hash_password,
     issue_access_token,
+    issue_ws_ticket,
     new_opaque_token,
     new_otp,
     token_digest,
@@ -252,6 +253,16 @@ async def subscribe_push(body: PushSubscriptionIn, user: CurrentUser, session: S
 @router.get("/push-key")
 async def push_key() -> dict[str, str]:
     return {"key": get_settings().vapid_public_key}
+
+
+class WsTicket(BaseModel):
+    ticket: str
+
+
+@router.post("/ws-ticket", response_model=WsTicket)
+async def ws_ticket(claims: Principal) -> WsTicket:
+    """The web app proxies HTTP but not sockets; a socket to the API's own host carries this instead of the cookie."""
+    return WsTicket(ticket=issue_ws_ticket(claims))
 
 
 class AuthOptions(BaseModel):

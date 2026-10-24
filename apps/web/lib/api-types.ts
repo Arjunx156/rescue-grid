@@ -158,6 +158,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/ws-ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ws Ticket
+         * @description The web app proxies HTTP but not sockets; a socket to the API's own host carries this instead of the cookie.
+         */
+        post: operations["ws_ticket_api_v1_auth_ws_ticket_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/options": {
         parameters: {
             query?: never;
@@ -2302,6 +2322,11 @@ export interface components {
             forecast?: components["schemas"]["WaterForecast"] | null;
             forcing?: components["schemas"]["FloodModelOut"] | null;
         };
+        /** WsTicket */
+        WsTicket: {
+            /** Ticket */
+            ticket: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -2570,6 +2595,26 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    ws_ticket_api_v1_auth_ws_ticket_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsTicket"];
                 };
             };
         };

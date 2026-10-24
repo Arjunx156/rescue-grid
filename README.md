@@ -68,6 +68,10 @@ Everything runs behind Caddy on one origin with `just stack`. Put a domain in `S
 
 For flood-aware road routing, start Valhalla with `docker compose --env-file .env -f infra/docker-compose.yml --profile routing up -d` (the first boot builds South India's road tiles, about 20 minutes), then set `ROUTER=valhalla` and `ROUTER_URL=http://valhalla:8002` (or `http://localhost:8002` for `just dev`).
 
+### On free tiers
+
+The public demo runs without a VM. The API and a Key Value store come up on Render from `render.yaml` (New, then Blueprint, then this repo), with migrations, seeding and the workers inside the one free instance. Postgres with PostGIS lives on Neon: paste its connection string as `DATABASE_URL` and the API adapts it for asyncpg. The web app deploys to Vercel with `apps/web` as its root, `API_INTERNAL_URL` set to the Render URL and `NEXT_PUBLIC_WS_URL` set to the same host over `wss://`. Vercel proxies HTTP but not WebSockets, so the browser fetches a 60-second ticket through the proxy and opens its socket straight to the API. A free Render instance sleeps after 15 idle minutes, so the first visit after a quiet spell takes about a minute.
+
 ## Privacy and security
 
 Phone numbers, names and message text are encrypted at rest. Viewers never see phones or diagnoses, and the masking happens on the server, including over the WebSocket. Ninety days after a disaster closes, a worker deletes every personal field and keeps the anonymous operational record. Sessions are short-lived JWTs with rotating refresh tokens. Writes need a CSRF header, WebSockets check their origin, and production pages ship a strict Content-Security-Policy.

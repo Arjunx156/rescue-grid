@@ -32,6 +32,8 @@ def _token(request: Request | WebSocket) -> str | None:
 
 
 def claims_from(request: Request | WebSocket) -> Claims | None:
+    if isinstance(request, WebSocket) and (ticket := request.query_params.get("ticket")):
+        return decode_access_token(ticket, typ="ws")
     token = _token(request)
     return decode_access_token(token) if token else None
 

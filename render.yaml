@@ -1,0 +1,59 @@
+# Render blueprint for the API: one free web service with the workers inline, and a free
+# Key Value for streams and pub/sub. Postgres lives on Neon; the web app on Vercel.
+services:
+  - type: web
+    name: rescue-grid-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    # free instances have no pre-deploy step; migrating and seeding are both idempotent
+    dockerCommand: sh -c "alembic upgrade head && python -m app.seed && exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
+    healthCheckPath: /health
+    buildFilter:
+      paths: [apps/api/**, data/**, render.yaml]
+    envVars:
+      - key: ENV
+        value: prod
+      - key: DEMO_MODE
+        value: "true"
+      - key: OTP_DEV_ECHO
+        value: "false"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: WORKERS_INLINE
+        value: "true"
+      # 512 MB of memory: one flood ensemble member at a time
+      - key: NOWCAST_THREADS
+        value: "1"
+      - key: LLM_PROVIDER
+        value: local
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEYS
+        generateValue: true
+      - key: DATA_HASH_KEY
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: rescue-grid-redis
+          property: connectionString
+      # Neon connection string, as Neon shows it
+      - key: DATABASE_URL
+        sync: false
+      # the Vercel URL, e.g. https://rescue-grid.vercel.app
+      - key: PUBLIC_BASE_URL
+        sync: false
+      # the same URL as a JSON list, e.g. ["https://rescue-grid.vercel.app"]
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: keyvalue
+    name: rescue-grid-redis
+    plan: free
+    region: singapore
+    # streams hold unprocessed SOS messages; evicting them would lose reports
+    maxmemoryPolicy: noeviction
+    ipAllowList: []

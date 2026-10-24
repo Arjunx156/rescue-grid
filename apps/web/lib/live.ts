@@ -2,7 +2,7 @@
 
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import type { AssignmentOut, CaseDetail, CaseOut, Counters, TeamOut } from "./api";
+import { type AssignmentOut, api, type CaseDetail, type CaseOut, type Counters, type TeamOut } from "./api";
 import { keys, type ReplayState } from "./queries";
 import { useUi } from "./store";
 
@@ -14,11 +14,18 @@ interface Message {
   at: string;
 }
 
-function wsBase(): string {
+/**
+ * Where a socket should connect. When the API has a host of its own (the web host cannot proxy
+ * sockets), the session cookie stays behind, so the socket carries a short-lived ticket instead.
+ */
+export async function socketUrl(path: string): Promise<string> {
   const configured = process.env.NEXT_PUBLIC_WS_URL;
-  if (configured) return configured;
-  const { protocol, host } = window.location;
-  return `${protocol === "https:" ? "wss" : "ws"}://${host}`;
+  if (!configured) {
+    const { protocol, host } = window.location;
+    return `${protocol === "https:" ? "wss" : "ws"}://${host}${path}`;
+  }
+  const { ticket } = await api.post<{ ticket: string }>("/api/v1/auth/ws-ticket");
+  return `${configured}${path}?ticket=${encodeURIComponent(ticket)}`;
 }
 
 function upsertCases(qc: QueryClient, disasterId: string, incoming: CaseOut[]) {
@@ -146,9 +153,17 @@ export function useLive(disasterId: string | null) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const { setLive, touch } = useUi.getState();
 
-    const connect = () => {
-      setLive(attempt === 0 ? "connecting" : "reconnecting");
-      socket = new WebSocket(`${wsBase()}/ws/disasters/${disasterId}`);
+    const retry = () => {
+      if (closed) return;
+      attempt += 1;
+      setLive("reconnecting");
+      const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt, 5)) * (0.75 + Math.random() / 2);
+      timer = setTimeout(connect, delay);
+    };
+
+    const open = (url: string) => {
+      if (closed) return;
+      socket = new WebSocket(url);
       socket.onopen = () => {
         if (attempt > 0) {
           // we may have missed events while away: resync everything for this disaster
@@ -174,11 +189,13 @@ export function useLive(disasterId: string | null) {
           setLive("offline");
           return; // signed out or no access: reconnecting will not help
         }
-        attempt += 1;
-        setLive("reconnecting");
-        const delay = Math.min(30_000, 1000 * 2 ** Math.min(attempt, 5)) * (0.75 + Math.random() / 2);
-        timer = setTimeout(connect, delay);
+        retry();
       };
+    };
+
+    const connect = () => {
+      setLive(attempt === 0 ? "connecting" : "reconnecting");
+      socketUrl(`/ws/disasters/${disasterId}`).then(open, retry);
     };
     connect();
     const online = () => {

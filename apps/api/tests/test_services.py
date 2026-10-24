@@ -6,7 +6,7 @@ import pytest
 
 from app.agents import rules
 from app.core import crypto
-from app.core.settings import get_settings
+from app.core.settings import Settings, get_settings
 from app.services import dedup, dispatch, textnorm, triage
 from app.services.geocode import gazetteer, haversine_m
 
@@ -227,3 +227,8 @@ def test_encryption_round_trips_and_hash_is_stable() -> None:
 
 def test_haversine_sanity() -> None:
     assert abs(float(haversine_m(13.0, 80.0, 13.0, 80.01)) - 1084) < 5
+
+
+def test_hosted_postgres_urls_work_with_asyncpg() -> None:
+    url = "postgresql://u:p@ep-x.neon.tech/rescuegrid?sslmode=require&channel_binding=require"
+    assert Settings(database_url=url).database_url == "postgresql+asyncpg://u:p@ep-x.neon.tech/rescuegrid?ssl=require"

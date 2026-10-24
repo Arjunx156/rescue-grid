@@ -9,6 +9,7 @@ import { Toasts } from "@/components/toasts";
 import { api, type FieldNow, type FloodZoneOut } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { type Key, LANGS, type Lang } from "@/lib/i18n";
+import { socketUrl } from "@/lib/live";
 import { flushOutbox, onOutboxChange } from "@/lib/offline";
 import { useMe } from "@/lib/queries";
 import { useUi } from "@/lib/store";
@@ -103,10 +104,14 @@ function useTeamSocket(onEvent: (type: string) => void) {
     let closed = false;
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const base =
-      process.env.NEXT_PUBLIC_WS_URL || `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
-    const connect = () => {
-      ws = new WebSocket(`${base}/ws/field`);
+    const retry = () => {
+      if (closed) return;
+      attempt += 1;
+      timer = setTimeout(connect, Math.min(30_000, 1000 * 2 ** attempt));
+    };
+    const open = (url: string) => {
+      if (closed) return;
+      ws = new WebSocket(url);
       ws.onopen = () => {
         attempt = 0;
       };
@@ -118,10 +123,11 @@ function useTeamSocket(onEvent: (type: string) => void) {
         }
       };
       ws.onclose = (e) => {
-        if (closed || e.code === 1008) return;
-        attempt += 1;
-        timer = setTimeout(connect, Math.min(30_000, 1000 * 2 ** attempt));
+        if (e.code !== 1008) retry();
       };
+    };
+    const connect = () => {
+      socketUrl("/ws/field").then(open, retry);
     };
     connect();
     return () => {

@@ -19,6 +19,7 @@ and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ES
 
 from __future__ import annotations
 
+import itertools
 import json
 import math
 import urllib.request
@@ -53,7 +54,7 @@ def fetch(lat: int, lng: int) -> Path:
     if not path.exists():
         CACHE.mkdir(parents=True, exist_ok=True)
         print(f"downloading {name}")
-        urllib.request.urlretrieve(TILE_URL.format(n=name), path)  # noqa: S310 (fixed https host)
+        urllib.request.urlretrieve(TILE_URL.format(n=name), path)
     return path
 
 
@@ -117,7 +118,7 @@ def to_cell(lat: float, lng: float) -> tuple[int, int]:
 
 def densify(coords: list[list[float]], step_deg: float) -> list[tuple[float, float]]:
     out: list[tuple[float, float]] = []
-    for (x1, y1), (x2, y2) in zip(coords, coords[1:], strict=False):
+    for (x1, y1), (x2, y2) in itertools.pairwise(coords):
         n = max(1, math.ceil(math.hypot(x2 - x1, y2 - y1) / step_deg))
         out += [(y1 + (y2 - y1) * k / n, x1 + (x2 - x1) * k / n) for k in range(n)]
     out.append((coords[-1][1], coords[-1][0]))

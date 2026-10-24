@@ -1,0 +1,13 @@
+# for the API image, which builds from the repo root; the web image has its own
+.git
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+**/.env*
+apps/web
+apps/api/tests
+apps/api/evals
+apps/api/scripts
+data/.cache

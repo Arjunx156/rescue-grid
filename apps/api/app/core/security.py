@@ -18,6 +18,7 @@ ALGO = "HS256"
 ACCESS_COOKIE = "rg_at"
 REFRESH_COOKIE = "rg_rt"
 ROLE_COOKIE = "rg_role"
+WS_TICKET_S = 60
 
 
 def hash_password(password: str) -> str:
@@ -43,7 +44,15 @@ class Claims:
 
 
 def issue_access_token(claims: Claims, now: datetime | None = None) -> str:
-    settings = get_settings()
+    return _encode(claims, "access", timedelta(minutes=get_settings().jwt_expires_min), now)
+
+
+def issue_ws_ticket(claims: Claims) -> str:
+    """A short-lived token for the socket URL, for when the API is on another site and the cookie cannot follow."""
+    return _encode(claims, "ws", timedelta(seconds=WS_TICKET_S))
+
+
+def _encode(claims: Claims, typ: str, ttl: timedelta, now: datetime | None = None) -> str:
     now = now or datetime.now(UTC)
     payload = {
         "sub": str(claims.user_id),
@@ -51,19 +60,19 @@ def issue_access_token(claims: Claims, now: datetime | None = None) -> str:
         "org": str(claims.org_id) if claims.org_id else None,
         "sid": str(claims.session_id),
         "team": str(claims.team_id) if claims.team_id else None,
-        "typ": "access",
+        "typ": typ,
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(minutes=settings.jwt_expires_min)).timestamp()),
+        "exp": int((now + ttl).timestamp()),
     }
-    return jwt.encode(payload, settings.jwt_secret.get_secret_value(), algorithm=ALGO)
+    return jwt.encode(payload, get_settings().jwt_secret.get_secret_value(), algorithm=ALGO)
 
 
-def decode_access_token(token: str) -> Claims | None:
+def decode_access_token(token: str, typ: str = "access") -> Claims | None:
     try:
         data = jwt.decode(token, get_settings().jwt_secret.get_secret_value(), algorithms=[ALGO])
     except jwt.PyJWTError:
         return None
-    if data.get("typ") != "access":
+    if data.get("typ") != typ:
         return None
     return Claims(
         user_id=uuid.UUID(data["sub"]),

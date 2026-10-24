@@ -13,6 +13,7 @@ from starlette.websockets import WebSocket
 
 from app.actions import planning, resolve
 from app.core.db import sessionmaker
+from app.core.deps import claims_from
 from app.core.settings import get_settings
 from app.models import Assignment, Case, Disaster, OutboundMessage, SosMessage, Team
 from app.routers.ws import _trusted_origin
@@ -202,6 +203,24 @@ def test_websockets_refuse_other_sites() -> None:
     assert _trusted_origin(socket("http://localhost:3100"))  # the dev web app
     assert _trusted_origin(socket("https://rescue.example"))  # same host behind the proxy
     assert _trusted_origin(socket(None))  # not a browser, no ambient cookie
+
+
+async def test_ws_ticket_opens_a_socket_but_not_the_api(world: World) -> None:
+    async with client() as c:
+        await login(c, world.coordinator.email or "")
+        r = await c.post("/api/v1/auth/ws-ticket")
+        assert r.status_code == 200, r.text
+        ticket = r.json()["ticket"]
+    sock = WebSocket(
+        {"type": "websocket", "headers": [], "path": "/ws/field", "query_string": f"ticket={ticket}".encode()},
+        _never,
+        _never,
+    )
+    claims = claims_from(sock)
+    assert claims is not None and claims.user_id == world.coordinator.id
+    async with client() as c:
+        r = await c.get("/api/v1/auth/me", headers={"authorization": f"Bearer {ticket}"})
+        assert r.status_code == 401  # a socket ticket is not a session
 
 
 async def _never(*_: object) -> NoReturn:
